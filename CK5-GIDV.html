@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>CHECKEY5 </title>
+<style>
+html,body{margin:0;padding:0;height:100%;overflow:hidden;font-family:monospace;background:black;color:#0ff;}
+#introVideo{position:fixed;top:0;left:0;width:100%;height:100%;object-fit:cover;z-index:2;}
+#matrixCanvas{position:fixed;top:0;left:0;width:100%;height:100%;z-index:1;}
+.container{
+  display:none;position:relative;z-index:3;width:90vw;max-width:900px;margin:30px auto;padding:18px;
+  border-radius:12px;background:rgba(0,0,0,0.6);border:2px solid #0ff;box-shadow:0 0 25px #0ff;
+  max-height:90vh;overflow-y:auto;
+}
+.header{text-align:center;}
+.header h1{margin:0;font-size:2rem;color:#ff00ff;text-shadow:0 0 10px #ff00ff;}
+.header p{margin:4px 0 14px 0;color:#00f;text-shadow:0 0 6px #00f;}
+.layout{display:flex;flex-wrap:wrap;gap:18px;justify-content:center;}
+.col{background:rgba(0,0,0,0.2);padding:12px;border-radius:10px;width:100%;max-width:420px;border:1px solid rgba(255,255,255,0.05);}
+h2.section{color:#ff00ff;text-align:center;margin:0 0 8px 0;}
+input,button,canvas{width:100%;margin-bottom:10px;padding:10px;border-radius:8px;border:1px solid #0ff;background:rgba(0,0,0,0.2);color:#0ff;}
+button{cursor:pointer;background:linear-gradient(90deg,#00f,#ff00ff);color:#000;transition:0.22s;}
+button:hover{transform:scale(1.05);}
+.result{font-weight:bold;max-height:220px;overflow:auto;padding:8px;border-radius:6px;border:1px solid #0ff;}
+#adminPanel{
+  display:none;position:fixed;top:20px;right:20px;width:550px;max-width:95vw;background:rgba(0,0,0,0.95);
+  padding:12px;border:2px solid #0ff;border-radius:10px;box-shadow:0 0 20px #0ff;color:#0ff;z-index:5;
+}
+#adminPanel input, #adminPanel button{margin-bottom:8px;}
+table{width:100%;border-collapse:collapse;}
+th,td{border:1px solid #0ff;padding:6px;color:#0ff;font-size:0.85em;}
+th{color:#ff00ff;}
+.deleteBtn, .replaceBtn{background:#f00;color:#fff;border:none;border-radius:4px;cursor:pointer;padding:2px 6px;margin-right:4px;}
+.replaceBtn{background:#0f0;color:#000;}
+td.nameCell, td.hashCell{cursor:pointer;}
+td.nameCell:hover, td.hashCell:hover{text-decoration:underline;}
+.footer{position:fixed;bottom:0;width:100%;text-align:center;color:#ff00ff;background:rgba(0,0,0,0.6);padding:6px;z-index:4;font-size:0.9em;}
+</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.14.305/pdf.min.js"></script>
+</head>
+<body>
+
+<video id="introVideo" autoplay muted playsinline>
+  <source src="intro.mp4" type="video/mp4">
+</video>
+<canvas id="matrixCanvas"></canvas>
+
+<div class="container" id="mainUI">
+  <div class="header">
+    <h1>CHECKEY5</h1>
+    <p>Government Issued Document Verifier</p>
+  </div>
+  <div class="layout">
+    <div class="col">
+      <h2 class="section">User Verification</h2>
+      <input type="file" id="pdfFile" accept="application/pdf">
+      <button id="verifyBtn">Verify Document</button>
+      <canvas id="pdfCanvas" style="width:100%;border:1px solid #0ff;margin-top:8px;"></canvas>
+      <div id="result" class="result"></div>
+    </div>
+  </div>
+</div>
+
+<div id="adminPanel">
+  <h2 style="text-align:center;color:#ff00ff;margin:0 0 8px 0;">Admin Panel</h2>
+  <input type="password" id="adminPass" placeholder="Password">
+  <button id="loginBtn">Login</button>
+  <div id="adminControls" style="display:none;">
+    <p>Add New PDF (Temporary):</p>
+    <input type="file" id="newPdfFile" accept="application/pdf">
+    <button id="addPdfBtn">Add PDF</button>
+    <p>Embedded Approved PDFs (Permanent):</p>
+    <table>
+      <thead><tr><th>Name</th><th>SHA-256 Hash</th><th>Actions</th></tr></thead>
+      <tbody id="approvedTable"></tbody>
+    </table>
+    <small>Click name to edit, hover hash for full value</small>
+  </div>
+</div>
+
+<div class="footer">
+  &copy; 2026 CHECKEY5 — All Rights Reserved
+</div>
+
+<script>
+// MATRIX RAIN
+const canvas=document.getElementById('matrixCanvas');
+const ctx=canvas.getContext('2d');
+let W=canvas.width=window.innerWidth,H=canvas.height=window.innerHeight;
+const cols=Math.floor(W/20); const drops=Array(cols).fill(1);
+function drawMatrix(){
+  ctx.fillStyle="rgba(0,0,0,0.1)"; ctx.fillRect(0,0,W,H);
+  for(let i=0;i<drops.length;i++){
+    const text=Math.random()>0.5?"0":"1";
+    const grad=ctx.createLinearGradient(i*20,drops[i]*20,i*20+20,drops[i]*20);
+    grad.addColorStop(0,"#ff00ff"); grad.addColorStop(1,"#00f");
+    ctx.fillStyle=grad; ctx.font="20px monospace"; ctx.fillText(text,i*20,drops[i]*20);
+    if(drops[i]*20>H && Math.random()>0.975)drops[i]=0; drops[i]++;
+  }
+  requestAnimationFrame(drawMatrix);
+}
+drawMatrix(); window.addEventListener('resize',()=>{W=canvas.width=window.innerWidth;H=canvas.height=window.innerHeight;});
+
+// ======================
+// EMBEDDED PDFs (PERMANENT)
+// ======================
+// Replace with Node.js output
+let approvedRecords = [
+  // Example:
+  // { "name":"document1.pdf", "base64":"data:application/pdf;base64,JVBERi0xLjcK...", "hash":"f3a1b2c4..." }
+];
+
+// PDF Verification
+const pdfFile=document.getElementById('pdfFile');
+const pdfCanvas=document.getElementById('pdfCanvas');
+const verifyBtn=document.getElementById('verifyBtn');
+const resultDiv=document.getElementById('result');
+
+verifyBtn.addEventListener('click', async ()=>{
+  if(!pdfFile.files.length){ alert('Select a PDF'); return; }
+  const file=pdfFile.files[0]; const typed=new Uint8Array(await file.arrayBuffer());
+  const pdfDoc=await pdfjsLib.getDocument(typed).promise;
+  const page=await pdfDoc.getPage(1); const vp=page.getViewport({scale:1.2});
+  pdfCanvas.height=vp.height; pdfCanvas.width=vp.width;
+  await page.render({canvasContext:pdfCanvas.getContext('2d'),viewport:vp}).promise;
+  const buf=await file.arrayBuffer();
+  const hashBuf=await crypto.subtle.digest('SHA-256',buf);
+  const hash=Array.from(new Uint8Array(hashBuf)).map(b=>b.toString(16).padStart(2,'0')).join('');
+  let isOriginal=false; for(const rec of approvedRecords){if(rec.hash===hash){isOriginal=true;break;} }
+  resultDiv.innerText=isOriginal?"✅ Original Document":"❌ Fake Document";
+});
+
+// Show main UI after video
+const introVideo=document.getElementById('introVideo');
+const mainUI=document.getElementById('mainUI');
+introVideo.addEventListener('ended',()=>{introVideo.style.display='none'; mainUI.style.display='block'; document.body.style.overflow='auto';});
+
+// ======================
+// Admin Panel (Alt+Shift+A)
+// ======================
+const adminPanel=document.getElementById('adminPanel');
+const loginBtn=document.getElementById('loginBtn');
+const adminPass=document.getElementById('adminPass');
+const adminControls=document.getElementById('adminControls');
+const approvedTable=document.getElementById('approvedTable');
+const addPdfBtn=document.getElementById('addPdfBtn');
+const newPdfFile=document.getElementById('newPdfFile');
+const PASSWORD="admin123";
+
+async function updateAdminTable(){
+  approvedTable.innerHTML="";
+  for(let i=0;i<approvedRecords.length;i++){
+    const rec=approvedRecords[i]; const tr=document.createElement('tr');
+    const nameTd=document.createElement('td'); nameTd.className="nameCell"; nameTd.innerText=rec.name;
+    nameTd.onclick=()=>{ const n=prompt("Edit PDF Name:",rec.name); if(n){rec.name=n; updateAdminTable();} };
+    const hashTd=document.createElement('td'); hashTd.className="hashCell"; hashTd.innerText=rec.hash.slice(0,30)+"..."; hashTd.title=rec.hash;
+    const actionTd=document.createElement('td');
+    const delBtn=document.createElement('button'); delBtn.className="deleteBtn"; delBtn.innerText="Delete"; delBtn.onclick=()=>{approvedRecords.splice(i,1);updateAdminTable();};
+    const repBtn=document.createElement('button'); repBtn.className="replaceBtn"; repBtn.innerText="Replace"; repBtn.onclick=async ()=>{
+      const fInput=document.createElement('input'); fInput.type="file"; fInput.accept="application/pdf";
+      fInput.onchange=async e=>{ const f=e.target.files[0]; if(!f) return;
+        const buf=await f.arrayBuffer();
+        function arrayBufferToBase64(buffer){let binary="";const bytes=new Uint8Array(buffer);const chunkSize=0x8000;
+          for(let j=0;j<bytes.length;j+=chunkSize){ const chunk=bytes.subarray(j,j+chunkSize); binary+=String.fromCharCode(...chunk); }
+        return "data:application/pdf;base64,"+btoa(binary); }
+        const base64=arrayBufferToBase64(buf);
+        const hashBuf=await crypto.subtle.digest('SHA-256',buf);
+        const hash=Array.from(new Uint8Array(hashBuf)).map(b=>b.toString(16).padStart(2,'0')).join('');
+        approvedRecords[i]={name:f.name,base64,hash}; updateAdminTable();
+      }; fInput.click();
+    };
+    actionTd.appendChild(delBtn); actionTd.appendChild(repBtn);
+    tr.appendChild(nameTd); tr.appendChild(hashTd); tr.appendChild(actionTd); approvedTable.appendChild(tr);
+  }
+}
+
+loginBtn.addEventListener('click',()=>{ if(adminPass.value===PASSWORD){adminControls.style.display='block';adminPass.style.display='none';loginBtn.style.display='none';updateAdminTable();} else alert("Incorrect password");});
+document.addEventListener('keydown',e=>{if(e.altKey && e.shiftKey && e.code==="KeyA"){adminPanel.style.display=(adminPanel.style.display==="block")?"none":"block";}});
+
+addPdfBtn.addEventListener('click', async ()=>{
+  if(!newPdfFile.files.length){alert('Select a PDF'); return;}
+  const file=newPdfFile.files[0]; const arrayBuffer=await file.arrayBuffer();
+  function arrayBufferToBase64(buffer){let binary="";const bytes=new Uint8Array(buffer);const chunkSize=0x8000;
+    for(let i=0;i<bytes.length;i+=chunkSize){const chunk=bytes.subarray(i,i+chunkSize);binary+=String.fromCharCode(...chunk);}
+    return "data:application/pdf;base64,"+btoa(binary);}
+  const base64=arrayBufferToBase64(arrayBuffer);
+  const hashBuf=await crypto.subtle.digest('SHA-256',arrayBuffer);
+  const hash=Array.from(new Uint8Array(hashBuf)).map(b=>b.toString(16).padStart(2,'0')).join('');
+  approvedRecords.push({name:file.name,base64,hash});
+  newPdfFile.value=""; updateAdminTable(); alert("PDF added successfully!");
+});
+</script>
+</body>
+</html>
